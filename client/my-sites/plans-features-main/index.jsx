@@ -89,6 +89,7 @@ export class PlansFeaturesMain extends Component {
 					'is-' + ( displayJetpackPlans ? 'jetpack' : 'wpcom' ),
 					{
 						[ `is-customer-${ customerType }` ]: ! displayJetpackPlans,
+						'is-scrollable': plansWithScroll,
 					}
 				) }
 				data-e2e-plans={ displayJetpackPlans ? 'jetpack' : 'wpcom' }
@@ -109,7 +110,7 @@ export class PlansFeaturesMain extends Component {
 					withDiscount={ withDiscount }
 					withScroll={ plansWithScroll }
 					popularPlanSpec={ {
-						type: customerType === 'personal' ? TYPE_PREMIUM : TYPE_BUSINESS,
+						type: customerType === 'personal' || plansWithScroll ? TYPE_PREMIUM : TYPE_BUSINESS,
 						group: GROUP_WPCOM,
 					} }
 					siteId={ siteId }
