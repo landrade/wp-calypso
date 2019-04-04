@@ -110,7 +110,7 @@ function getWebpackConfig(
 			...SassConfig.plugins( { cssFilename, minify: ! isDevelopment } ),
 			new DuplicatePackageCheckerPlugin(),
 		],
-		externals: [ wordpressExternals, 'wp', 'lodash' ],
+		externals: [ ...( env.WP ? [ wordpressExternals, 'wp', 'lodash' ] : [] ) ],
 	};
 
 	return webpackConfig;
