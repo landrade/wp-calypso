@@ -12,18 +12,15 @@ import { isEmpty, noop, every, flow, has, defer, get, trim, sortBy, reverse } fr
 import url from 'url';
 import moment from 'moment';
 import { stringify } from 'qs';
+import debugFactory from 'debug';
 
 /**
  * Internal dependencies
  */
-import wpLib from 'lib/wp';
 import config from 'config';
+import wpLib from 'lib/wp';
 import { validateImportUrl } from 'lib/importers/url-validation';
-
-const wpcom = wpLib.undocumented();
-
 import { toApi, fromApi } from 'lib/importer/common';
-
 import {
 	mapAuthor,
 	startMappingAuthors,
@@ -31,23 +28,20 @@ import {
 	createFinishUploadAction,
 } from 'lib/importer/actions';
 import user from 'lib/user';
-
-import { appStates } from 'state/imports/constants';
-import ErrorPane from '../error-pane';
 import TextInput from 'components/forms/form-text-input';
 import FormSelect from 'components/forms/form-select';
-
-import SiteImporterSitePreview from './site-importer-site-preview';
-
-import { prefetchmShotsPreview } from './site-preview-actions';
-
 import { recordTracksEvent } from 'state/analytics/actions';
-
 import { setSelectedEditor } from 'state/selected-editor/actions';
-
 import ImporterActionButton from 'my-sites/importer/importer-action-buttons/action-button';
 import ImporterCloseButton from 'my-sites/importer/importer-action-buttons/close-button';
 import ImporterActionButtonContainer from 'my-sites/importer/importer-action-buttons/container';
+import ErrorPane from '../error-pane';
+import SiteImporterSitePreview from './site-importer-site-preview';
+import { prefetchmShotsPreview } from './site-preview-actions';
+
+const wpcom = wpLib.undocumented();
+
+const debug = debugFactory( 'calypso:site-importer-input-pane' );
 
 const NO_ERROR_STATE = {
 	error: false,
@@ -90,60 +84,6 @@ class SiteImporterInputPane extends React.Component {
 	componentDidMount() {
 		this.validateSite();
 	}
-
-	// TODO This can be improved if we move to Redux.
-	UNSAFE_componentWillReceiveProps = nextProps => {
-		// TODO test on a site without posts
-		const newImporterState = nextProps.importerStatus.importerState;
-		const oldImporterState = this.props.importerStatus.importerState;
-		const singleAuthorSite = get( this.props.site, 'single_user_site', true );
-
-		if ( newImporterState !== oldImporterState && newImporterState === appStates.UPLOAD_SUCCESS ) {
-			// WXR was uploaded, map the authors
-			if ( singleAuthorSite ) {
-				defer( props => {
-					const currentUserData = user().get();
-					const currentUser = {
-						...currentUserData,
-						name: currentUserData.display_name,
-					};
-
-					// map all the authors to the current user
-					// TODO: when converting to redux, allow for multiple mappings in a single action
-					props.importerStatus.customData.sourceAuthors.forEach( author => {
-						mapAuthor( props.importerStatus.importerId, author, currentUser );
-					} );
-				}, nextProps );
-			} else {
-				defer( props => startMappingAuthors( props.importerStatus.importerId ), nextProps );
-
-				this.props.recordTracksEvent( 'calypso_site_importer_map_authors_multi', {
-					blog_id: this.props.site.ID,
-					site_url: this.state.importSiteURL,
-				} );
-			}
-
-			// Do not continue execution of the function as the rest should be executed on the next update.
-			return;
-		}
-
-		if ( singleAuthorSite && has( this.props, 'importerStatus.customData.sourceAuthors' ) ) {
-			// Authors have been mapped, start the import
-			const oldAuthors = every( this.props.importerStatus.customData.sourceAuthors, 'mappedTo' );
-			const newAuthors = every( nextProps.importerStatus.customData.sourceAuthors, 'mappedTo' );
-
-			if ( oldAuthors === false && newAuthors === true ) {
-				defer( props => {
-					startImporting( props.importerStatus );
-				}, nextProps );
-
-				this.props.recordTracksEvent( 'calypso_site_importer_map_authors_single', {
-					blog_id: this.props.site.ID,
-					site_url: this.state.importSiteURL,
-				} );
-			}
-		}
-	};
 
 	fetchEndpoints = () => {
 		wpcom.wpcom.req
@@ -354,10 +294,15 @@ class SiteImporterInputPane extends React.Component {
 					this.props.setSelectedEditor( this.props.site.ID, 'gutenberg' );
 				}
 
-				const data = fromApi( resp );
-				const action = createFinishUploadAction( this.props.importerStatus.importerId, data );
 				defer( () => {
+					const data = fromApi( resp );
+					const action = createFinishUploadAction( this.props.importerStatus.importerId, data );
+
+					debug( 'dispatching finish upload action' );
+
 					Dispatcher.handleViewAction( action );
+
+					defer( () => this.afterUploadSuccess() );
 				} );
 			} )
 			.catch( err => {
@@ -382,6 +327,58 @@ class SiteImporterInputPane extends React.Component {
 				} );
 			} );
 	};
+
+	afterUploadSuccess = () => {
+		const singleAuthorSite = get( this.props.site, 'single_user_site', true );
+
+		// WXR was uploaded, map the authors
+		if ( singleAuthorSite ) {
+			debug( 'afterUploadSuccess > is singleAuthorSite' );
+			const currentUserData = user().get();
+			const currentUser = {
+				...currentUserData,
+				name: currentUserData.display_name,
+			};
+			const sourceAuthors = get( this.props, 'importerStatus.customData.sourceAuthors', [] );
+			const importerId = get( this.props, 'importerStatus.importerId' );
+
+			// map all the authors to the current user
+			// TODO: when converting to redux, allow for multiple mappings in a single action
+			sourceAuthors.forEach( author => {
+				mapAuthor( importerId, author, currentUser );
+
+				// Check if all authors are mapped before starting the import.
+				defer( () => {
+					const areAllAuthorsAreMapped = this.areAllAuthorsAreMapped();
+
+					debug( 'afterUploadSuccess > afterAuthorMaping', { areAllAuthorsAreMapped } );
+
+					if ( areAllAuthorsAreMapped ) {
+						debug( 'afterUploadSuccess > afterAuthorMaping > startImporting' );
+						startImporting( this.props.importerStatus );
+
+						this.props.recordTracksEvent( 'calypso_site_importer_map_authors_single', {
+							blog_id: this.props.site.ID,
+							site_url: this.state.importSiteURL,
+						} );
+					}
+				} );
+			} );
+		} else {
+			debug( 'afterUploadSuccess > is not singleAuthorSite' );
+			// If the site isn't single author, we want to give the opportunity
+			// to map authors before stating the import
+			startMappingAuthors( this.props.importerStatus.importerId );
+
+			this.props.recordTracksEvent( 'calypso_site_importer_map_authors_multi', {
+				blog_id: this.props.site.ID,
+				site_url: this.state.importSiteURL,
+			} );
+		}
+	};
+
+	areAllAuthorsAreMapped = () =>
+		every( get( this.props, 'importerStatus.customData.sourceAuthors' ), 'mappedTo' );
 
 	resetImport = () => {
 		this.props.recordTracksEvent( 'calypso_site_importer_reset_import', {
