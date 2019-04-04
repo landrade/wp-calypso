@@ -15,12 +15,15 @@ const path = require( 'path' );
  * @return {object} webpack config
  */
 function getWebpackConfig() {
-	return getBaseWebpackConfig( null, {
-		entry: {
-			editor: path.join( __dirname, 'src', 'editor.js' ),
-		},
-		'output-path': path.join( __dirname, 'dist' ),
-	} );
+	return getBaseWebpackConfig(
+		{ WP: true },
+		{
+			entry: {
+				editor: path.join( __dirname, 'src', 'editor.js' ),
+			},
+			'output-path': path.join( __dirname, 'dist' ),
+		}
+	);
 }
 
 module.exports = getWebpackConfig;
