@@ -55,7 +55,6 @@ export class SignupSitePreview extends Component {
 		isRtl: PropTypes.bool,
 		langSlug: PropTypes.string,
 		themeSlug: PropTypes.string,
-		siteStyle: PropTypes.string,
 		siteType: PropTypes.string,
 		// Iframe body content
 		content: PropTypes.object,
@@ -66,7 +65,6 @@ export class SignupSitePreview extends Component {
 		defaultViewportDevice: 'desktop',
 		isRtl: false,
 		langSlug: 'en',
-		siteStyle: 'default',
 		siteType: 'business',
 		themeSlug: 'pub/professional-business',
 		content: {},
@@ -76,30 +74,31 @@ export class SignupSitePreview extends Component {
 	constructor( props ) {
 		super( props );
 		this.iframe = React.createRef();
-		this.state = {
-			loaded: false,
-		};
+	}
+
+	componentDidMount() {
+		this.setIframeSource();
 	}
 
 	shouldComponentUpdate( nextProps ) {
 		if ( this.props.themeSlug !== nextProps.themeSlug ) {
-			return true;
-		}
-
-		if ( this.props.siteStyle !== nextProps.siteStyle ) {
-			return true;
+			this.setIframeSource();
+			return false;
 		}
 
 		if ( this.props.content.title !== nextProps.content.title ) {
 			this.setIframeContent( '.site-builder__title', nextProps.content.title );
+			return false;
 		}
 
 		if ( this.props.content.tagline !== nextProps.content.tagline ) {
 			this.setIframeContent( '.site-builder__description', nextProps.content.tagline );
+			return false;
 		}
 
 		if ( this.props.content.body !== nextProps.content.body ) {
 			this.setIframePageContent( nextProps.content );
+			return false;
 		}
 
 		return false;
@@ -139,17 +138,19 @@ export class SignupSitePreview extends Component {
 		this.setOnPreviewClick();
 	};
 
-	getIframeSource = () => {
+	setIframeSource = () => {
+		if ( ! this.iframe.current ) {
+			return;
+		}
 		const { fontUrl, content, isRtl, langSlug, themeSlug } = this.props;
-		return getIframeSource( content, fontUrl, isRtl, langSlug, themeSlug );
+		this.iframe.current.src = getIframeSource( content, fontUrl, isRtl, langSlug, themeSlug );
 	};
 
 	render() {
-		const { content, isDesktop, isPhone,  } = this.props;
+		const { content, isDesktop, isPhone } = this.props;
 		const className = classNames( this.props.className, 'signup-site-preview__wrapper', {
 			'is-desktop': isDesktop,
 			'is-phone': isPhone,
-			'is-loaded': this.state.loaded,
 		} );
 
 		return (
@@ -159,7 +160,6 @@ export class SignupSitePreview extends Component {
 					<iframe
 						ref={ this.iframe }
 						className="signup-site-preview__iframe"
-						src={ this.getIframeSource() }
 						title={ `${ content.title } – ${ content.tagline }` }
 						onLoad={ this.setLoaded }
 					/>
