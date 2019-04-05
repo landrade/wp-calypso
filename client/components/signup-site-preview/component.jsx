@@ -13,7 +13,7 @@ import { localize, translate } from 'i18n-calypso';
 /**
  * Internal dependencies
  */
-import { getLocaleSlug } from 'lib/i18n-utils';
+import { getLocaleSlug, getLanguage } from 'lib/i18n-utils';
 import { getIframeSource, getIframePageContent } from 'components/signup-site-preview/utils';
 
 /**
@@ -82,20 +82,20 @@ export class SignupSitePreview extends Component {
 	}
 
 	shouldComponentUpdate( nextProps ) {
-		if ( this.props.content.title !== nextProps.content.title ) {
-			this.setIframeContent( '.site-builder__title', nextProps.content.title );
-		}
-
-		if ( this.props.content.tagline !== nextProps.content.tagline ) {
-			this.setIframeContent( '.site-builder__description', nextProps.content.tagline );
-		}
-
 		if ( this.props.themeSlug !== nextProps.themeSlug ) {
 			return true;
 		}
 
 		if ( this.props.siteStyle !== nextProps.siteStyle ) {
 			return true;
+		}
+
+		if ( this.props.content.title !== nextProps.content.title ) {
+			this.setIframeContent( '.site-builder__title', nextProps.content.title );
+		}
+
+		if ( this.props.content.tagline !== nextProps.content.tagline ) {
+			this.setIframeContent( '.site-builder__description', nextProps.content.tagline );
 		}
 
 		if ( this.props.content.body !== nextProps.content.body ) {
@@ -139,11 +139,17 @@ export class SignupSitePreview extends Component {
 		this.setOnPreviewClick();
 	};
 
+	getIframeSource = () => {
+		const { fontUrl, content, isRtl, langSlug, themeSlug } = this.props;
+		return getIframeSource( content, fontUrl, isRtl, langSlug, themeSlug );
+	};
+
 	render() {
-		const { font, isDesktop, isPhone, content, isRtl, langSlug, themeSlug } = this.props;
+		const { content, isDesktop, isPhone,  } = this.props;
 		const className = classNames( this.props.className, 'signup-site-preview__wrapper', {
 			'is-desktop': isDesktop,
 			'is-phone': isPhone,
+			'is-loaded': this.state.loaded,
 		} );
 
 		return (
@@ -153,7 +159,7 @@ export class SignupSitePreview extends Component {
 					<iframe
 						ref={ this.iframe }
 						className="signup-site-preview__iframe"
-						src={ getIframeSource( content, font, isRtl, langSlug, themeSlug ) }
+						src={ this.getIframeSource() }
 						title={ `${ content.title } – ${ content.tagline }` }
 						onLoad={ this.setLoaded }
 					/>
@@ -164,10 +170,15 @@ export class SignupSitePreview extends Component {
 }
 
 export default connect(
-	( state, ownProps ) => ( {
-		isDesktop: 'desktop' === ownProps.defaultViewportDevice,
-		isPhone: 'phone' === ownProps.defaultViewportDevice,
-		langSlug: getLocaleSlug(),
-	} ),
+	( state, ownProps ) => {
+		const langSlug = getLocaleSlug();
+		const language = getLanguage( langSlug );
+		return {
+			isDesktop: 'desktop' === ownProps.defaultViewportDevice,
+			isPhone: 'phone' === ownProps.defaultViewportDevice,
+			langSlug,
+			isRtl: language && language.rtl,
+	};
+},
 	null
 )( localize( SignupSitePreview ) );

@@ -2,25 +2,25 @@
 /**
  * External dependencies
  */
+import classNames from 'classnames';
 import PropTypes from 'prop-types';
+import Gridicon from 'gridicons';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import classNames from 'classnames';
 import { each, find, isEmpty } from 'lodash';
 import { translate } from 'i18n-calypso';
 
 /**
  * Internal dependencies
  */
+import SignupSitePreview from 'components/signup-site-preview';
 import { getSiteType } from 'state/signup/steps/site-type/selectors';
-import { getSiteVerticalPreview } from 'state/signup/steps/site-vertical/selectors';
+import { getSiteVerticalPreview, getSiteVerticalSlug } from 'state/signup/steps/site-vertical/selectors';
 import { getSiteInformation } from 'state/signup/steps/site-information/selectors';
 import { getSiteStyle } from 'state/signup/steps/site-style/selectors';
-import SignupSitePreview from 'components/signup-site-preview';
-import Gridicon from 'gridicons';
 import { getSiteStyleOptions } from 'lib/signup/site-styles';
 import { recordTracksEvent } from 'state/analytics/actions';
-import { getSiteVerticalSlug } from 'state/signup/steps/site-vertical/selectors';
+
 /**
  * Style dependencies
  */
@@ -115,7 +115,7 @@ class SiteMockups extends Component {
 
 	render() {
 		const {
-			font,
+			fontUrl,
 			shouldShowHelpTip,
 			siteStyle,
 			siteType,
@@ -123,11 +123,12 @@ class SiteMockups extends Component {
 			themeSlug,
 			verticalPreviewContent,
 		} = this.props;
+
 		const siteMockupClasses = classNames( 'site-mockup__wrap', {
 			'is-empty': isEmpty( verticalPreviewContent ),
 		} );
 		const otherProps = {
-			font,
+			fontUrl,
 			content: {
 				title,
 				tagline: this.getTagline(),
@@ -164,7 +165,7 @@ export default connect(
 		const siteStyle = getSiteStyle( state );
 		const siteType = getSiteType( state );
 		const styleOptions = getSiteStyleOptions( siteType );
-		const style = find( styleOptions, { id: siteStyle || 'default' } );
+		const style = find( styleOptions, { id: siteStyle || 'professional' } );
 		return {
 			title: siteInformation.title || translate( 'Your New Website' ),
 			address: siteInformation.address,
@@ -177,10 +178,7 @@ export default connect(
 				'site-topic-with-preview' === ownProps.stepName ||
 				'site-information-title-with-preview' === ownProps.stepName,
 			themeSlug: style.theme,
-			font: {
-				...style.font,
-				id: style.font.name.trim().replace( / /g, '+' ),
-			},
+			fontUrl: style.fontUrl,
 		};
 	},
 	dispatch => ( {
