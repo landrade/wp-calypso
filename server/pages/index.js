@@ -706,6 +706,7 @@ module.exports = function() {
 		res.redirect( redirectUrl );
 	} );
 
+	// Landing pages for domains-related emails
 	app.get( '/domain-services/:action', function( req, res ) {
 		const ctx = getDefaultContext( req );
 		attachBuildTimestamp( ctx );
@@ -713,7 +714,10 @@ module.exports = function() {
 		attachI18n( ctx );
 
 		ctx.clientData = config.clientData;
-		ctx.domainsLandingData = { action: get( req.params, 'action', 'unknown-action' ) };
+		ctx.domainsLandingData = {
+			action: get( req, [ 'params', 'action' ], 'unknown-action' ),
+			query: get( req, 'query', {} ),
+		};
 
 		const pageHtml = renderJsx( 'domains-landing', {
 			...ctx,
